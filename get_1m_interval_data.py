@@ -134,7 +134,6 @@ def main():
     df_candle = prepare_candle_data(data=candle_data, time_window=time_window)
     
     # extracting latest and oldest epoch time from candle data 
-    #candle_oldest_open_time = df_candle.loc[len(df_candle)-1, "candle_open_time_epoch"] - To process 24 hour data
     candle_oldest_open_time = df_candle.loc[time_window-1, "candle_open_time_epoch"]
     candle_recent_open_time = df_candle.loc[0, "candle_open_time_epoch"]
     
