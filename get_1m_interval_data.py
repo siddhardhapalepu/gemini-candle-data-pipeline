@@ -11,9 +11,9 @@ def fetch_data(url, params=None):
     """Fetch data from the API and return a JSON response."""
     try:
         response = requests.get(url, params=params)
-        logging.info(f"fetching data from {url}")
+        logging.debug(f"fetching data from {url}")
         response.raise_for_status() # Will raise an HTTPError if the HTTP request returned an unsuccessful status code
-        logging.info(f"{url} - Successful")
+        logging.debug(f"{url} - Successful")
         return response.json()
     except requests.RequestException as e:
         logging.error(f"Request failed: {e}")
@@ -23,9 +23,9 @@ def prepare_candle_data(data, columns=None, time_window=None):
     """This function prepares candle data for the given time window
 
     Args:
-        data (list): input data is list of dicts
+        data (list): input data is list of lists containing candle data
         columns (list, optional): This is list of columns for candle data. Defaults to None.
-        time_window (int, optional): this defines who many minutes is the time window. Defaults to None.
+        time_window (int, optional): this defines how many minutes is the time window. Defaults to None.
 
     Returns:
         pandas dataframe: returns processed candle dataframe
@@ -42,7 +42,7 @@ def prepare_candle_data(data, columns=None, time_window=None):
     df_candle["candle_close_time_epoch"] = df_candle["candle_open_time_epoch"] + 60000
     df_candle['candle_open_time_utc'] = pd.to_datetime(df_candle['candle_open_time_epoch'], unit='ms')
     df_candle['candle_open_time_est'] = df_candle['candle_open_time_utc'].dt.tz_localize('UTC').dt.tz_convert('US/Eastern')
-    logging.debug("Candle df data")
+    logging.debug("First 5 rows of df_candle data")
     logging.debug(f"{df_candle.head(5)}")
     return df_candle.head(time_window)
 
@@ -51,8 +51,8 @@ def prepare_trade_data(trade_url, start_time, end_time, api_limit):
     This function prepares trades data for the input candle minute data
     Args:
         trade_url (string): Gemini trade api endpoint
-        start_time (int): _description_
-        end_time (int): _description_
+        start_time (int): start window of  candle data
+        end_time (int): end window of candle data
         api_limit (int): api output limit value
 
     Returns:
@@ -62,6 +62,8 @@ def prepare_trade_data(trade_url, start_time, end_time, api_limit):
         "timestamp": start_time
     }
     trade_data = fetch_data(trade_url, params=params)
+    
+    # Using tid because timestamps are duplicate
     tid = trade_data[0]["tid"]
     current_data = trade_data
     
@@ -79,6 +81,8 @@ def prepare_trade_data(trade_url, start_time, end_time, api_limit):
             end_time = current_data[0]["timestampms"]
             
     df_trades = pd.DataFrame(trade_data, columns=["timestamp", "timestampms", "tid", "price", "amount", "exchange", "type"])
+    logging.debug("First 5 rows of trade data")
+    logging.debug(f"{df_trades.head(5)}")
     return df_trades
 
 def prepare_one_min_candle_data(candle_data, trades_data):
@@ -120,7 +124,7 @@ def prepare_one_min_candle_data(candle_data, trades_data):
 
 
 def main():
-    time_window = 10 # process data for every 5 mins
+    time_window = 10 # process data for last time_window mins from this minute
     trades_api_limit = 500
 
     # Building candle data
@@ -139,7 +143,7 @@ def main():
     trade_url = "https://api.gemini.com/v1/trades/BTCUSD"
     df_trade = prepare_trade_data(trade_url, candle_oldest_open_time, candle_recent_open_time, trades_api_limit)
     
-    
+    logging.info("preparing final candle_1m data")
     df_final = prepare_one_min_candle_data(df_candle, df_trade)
     df_final.to_csv('candle_min_final.csv',index=False)
     bucket = 'gemini-data-landing'
