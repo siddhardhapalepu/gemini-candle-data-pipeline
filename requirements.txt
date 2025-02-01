@@ -1,0 +1,4 @@
+requests=2.32.3
+pandas=2.2.3
+boto3=1.36.10
+pytz=2025.1
